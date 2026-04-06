@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interaction Engine V2</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #1a1a1a; }
+        #canvas-container { width: 100vw; height: 100vh; cursor: grab; }
+        #canvas-container:active { cursor: grabbing; }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script>
+        const { Engine, Render, Runner, Bodies, Composite, Constraint, MouseConstraint, Mouse } = Matter;
+        const engine = Engine.create();
+        const world = engine.world;
+        engine.gravity.y = 0.5; 
+
+        const container = document.getElementById('canvas-container');
+        const render = Render.create({
+            element: container,
+            engine: engine,
+            options: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                wireframes: false,
+                background: '#1a1a1a'
+            }
+        });
+
+        Render.run(render);
+        Runner.run(Runner.create(), engine);
+
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight - 150;
+
+        const baseLeft = Bodies.circle(cx - 35, cy, 45, { 
+            isStatic: true, 
+            render: { fillStyle: '#ff9a8b' } 
+        });
+        const baseRight = Bodies.circle(cx + 35, cy, 45, { 
+            isStatic: true, 
+            render: { fillStyle: '#ff9a8b' } 
+        });
+
+        const segments = 8;
+        const stack = [];
+        for (let i = 0; i < segments; i++) {
+            const part = Bodies.rectangle(cx, cy - (i * 25) - 40, 55, 35, {
+                collisionFilter: { group: -1 },
+                chamfer: { radius: 15 },
+                render: { fillStyle: '#ffb3a7' },
+                frictionAir: 0.1,
+                density: 0.01
+            });
+            stack.push(part);
+
+            const spring = Constraint.create({
+                bodyA: i === 0 ? null : stack[i - 1],
+                pointA: i === 0 ? { x: cx, y: cy - 25 } : { x: 0, y: -15 },
+                bodyB: part,
+                pointB: { x: 0, y: 15 },
+                stiffness: 0.9,
+                damping: 0.2,
+                render: { visible: false }
+            });
+            Composite.add(world, [part, spring]);
+        }
+
+        const tip = Bodies.circle(cx, cy - (segments * 25) - 45, 38, {
+            render: { fillStyle: '#ff8a7a' },
+            frictionAir: 0.05
+        });
+
+        const tipConstraint = Constraint.create({
+            bodyA: stack[stack.length - 1],
+            bodyB: tip,
+            pointB: { x: 0, y: 18 },
+            stiffness: 1,
+            render: { visible: false }
+        });
+
+        const stiffener = Constraint.create({
+            pointA: { x: cx, y: cy - 20 },
+            bodyB: tip,
+            stiffness: 0.05,
+            damping: 0.1,
+            render: { visible: false }
+        });
+
+        Composite.add(world, [baseLeft, baseRight, tip, tipConstraint, stiffener]);
+
+        const mouse = Mouse.create(render.canvas);
+        const mouseConstraint = MouseConstraint.create(engine, {
+            mouse: mouse,
+            constraint: { 
+                stiffness: 0.2, 
+                render: { visible: false } 
+            }
+        });
+        Composite.add(world, mouseConstraint);
+
+        window.addEventListener('resize', () => {
+            render.canvas.width = window.innerWidth;
+            render.canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
