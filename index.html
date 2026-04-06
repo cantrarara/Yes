@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survival Smooth Savv - Web Edition</title>
+    <style>
+        html, body { overflow: hidden; width: 100%; height: 100%; margin: 0; padding: 0; background-color: #000; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+        #ui { position: absolute; top: 20px; left: 20px; color: white; font-family: sans-serif; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h1>Smooth Craft</h1>
+        <p>Gunakan WASD untuk jalan, Mouse untuk melihat. Klik untuk interaksi.</p>
+    </div>
+    <canvas id="renderCanvas"></canvas>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        const createScene = function () {
+            const scene = new BABYLON.Scene(engine);
+            scene.gravity = new BABYLON.Vector3(0, -9.81, 0); // Kasih gravitasi bumi
+            scene.collisionsEnabled = true; // Aktifkan sistem tabrakan
+
+            // 1. Setup Kamera (FPS Mode)
+            const camera = new BABYLON.FreeCamera("FreeCamera", new BABYLON.Vector3(0, 5, -10), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+            camera.attachControl(canvas, true);
+            
+            // Kontrol WASD & Tabrakan Player
+            camera.keysUp.push(87); camera.keysDown.push(83);
+            camera.keysLeft.push(65); camera.keysRight.push(68);
+            camera.speed = 1.0; camera.angularSensibility = 2000;
+            camera.applyGravity = true; camera.checkCollisions = true; camera.ellipsoid = new BABYLON.Vector3(1, 2, 1);
+
+            // 2. Setup Cahaya (Biar Kelihatan Real)
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            // 3. Setup TERRAIN SMOOTH (Tanah Bergelombang, Bukan Kotak)
+            const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("ground", "https://i.imgur.com/kP1K0xU.png", {
+                width: 100, height: 100, subdivisions: 50, maxHeight: 8, 
+                onReady: function(ground) {
+                    ground.checkCollisions = true; // Biar player gak nembus tanah
+                    ground.material = new BABYLON.StandardMaterial("groundMat", scene);
+                    ground.material.diffuseTexture = new BABYLON.Texture("https://i.imgur.com/3936M3k.jpg", scene); // Tekstur Rumput
+                    ground.material.diffuseTexture.uScale = 10.0;
+                    ground.material.diffuseTexture.vScale = 10.0;
+                }
+            }, scene);
+
+            // 4. Bikin Pohon Mulus (Contoh Objek Interaction)
+            const createTree = (x, z) => {
+                const trunk = BABYLON.MeshBuilder.CreateCylinder("trunk", {height: 4, diameter: 0.8}, scene);
+                trunk.position = new BABYLON.Vector3(x, 2, z);
+                trunk.material = new BABYLON.StandardMaterial("trunkMat", scene);
+                trunk.material.diffuseColor = new BABYLON.Color3(0.5, 0.3, 0.1); // Warna Coklat
+                trunk.checkCollisions = true;
+
+                const leaves = BABYLON.MeshBuilder.CreateSphere("leaves", {diameter: 4}, scene);
+                leaves.position = new BABYLON.Vector3(x, 5, z);
+                leaves.material = new BABYLON.StandardMaterial("leavesMat", scene);
+                leaves.material.diffuseColor = new BABYLON.Color3(0.1, 0.7, 0.1); // Warna Hijau
+                leaves.checkCollisions = true;
+                
+                // Kasih tag buat identifikasi
+                trunk.metadata = { type: "tree", health: 5 };
+                return trunk;
+            };
+
+            const tree1 = createTree(10, 10);
+            createTree(-15, 20); createTree(5, -15);
+
+            // 5. SISTEM INTERAKSI (Minying/Hancurin)
+            scene.onPointerDown = function (evt, pickResult) {
+                if (pickResult.hit && pickResult.pickedMesh && pickResult.pickedMesh.metadata && pickResult.pickedMesh.metadata.type === "tree") {
+                    console.log("Mukul Pohon!");
+                    pickResult.pickedMesh.metadata.health -= 1;
+
+                    // Efek visual pas dipukul (goyang dikit)
+                    pickResult.pickedMesh.position.y += 0.2;
+                    setTimeout(() => pickResult.pickedMesh.position.y -= 0.2, 50);
+
+                    if (pickResult.pickedMesh.metadata.health <= 0) {
+                        console.log("Pohon Hancur!");
+                        pickResult.pickedMesh.parent = null; // Pisahin dari parent kalau ada
+                        pickResult.pickedMesh.setEnabled(false); // Sembunyikan pohonnya
+                        // Di sini lo bisa tambahin mekanik spawn item "Kayu Mulus"
+                    }
+                }
+            };
+
+            return scene;
+        };
+
+        const scene = createScene();
+
+        engine.runRenderLoop(function () {
+            scene.render();
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
