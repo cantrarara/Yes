@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interaction Engine</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #111; }
+        #canvas-container { width: 100vw; height: 100vh; cursor: grab; }
+        #canvas-container:active { cursor: grabbing; }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script>
+        const { Engine, Render, Runner, Bodies, Composite, Constraint, MouseConstraint, Mouse } = Matter;
+        const engine = Engine.create();
+        const world = engine.world;
+        const container = document.getElementById('canvas-container');
+        const render = Render.create({
+            element: container,
+            engine: engine,
+            options: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                wireframes: false,
+                background: '#111'
+            }
+        });
+        Render.run(render);
+        Runner.run(Runner.create(), engine);
+
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight - 150;
+
+        const baseLeft = Bodies.circle(cx - 45, cy, 50, { 
+            isStatic: true, 
+            render: { fillStyle: '#e74c3c' } 
+        });
+        const baseRight = Bodies.circle(cx + 45, cy, 50, { 
+            isStatic: true, 
+            render: { fillStyle: '#e74c3c' } 
+        });
+
+        const segments = 10;
+        const stack = [];
+        for (let i = 0; i < segments; i++) {
+            const part = Bodies.rectangle(cx, cy - (i * 25) - 40, 50, 30, {
+                collisionFilter: { group: -1 },
+                chamfer: { radius: 12 },
+                render: { fillStyle: '#f1c40f' }
+            });
+            stack.push(part);
+            const spring = Constraint.create({
+                bodyA: i === 0 ? null : stack[i - 1],
+                pointA: i === 0 ? { x: cx, y: cy - 20 } : { x: 0, y: -12 },
+                bodyB: part,
+                pointB: { x: 0, y: 12 },
+                stiffness: 0.7,
+                damping: 0.1,
+                render: { visible: false }
+            });
+            Composite.add(world, [part, spring]);
+        }
+
+        const tip = Bodies.circle(cx, cy - (segments * 25) - 40, 35, {
+            render: { fillStyle: '#f39c12' }
+        });
+        const tipConstraint = Constraint.create({
+            bodyA: stack[stack.length - 1],
+            bodyB: tip,
+            pointB: { x: 0, y: 15 },
+            stiffness: 0.9,
+            render: { visible: false }
+        });
+
+        Composite.add(world, [baseLeft, baseRight, tip, tipConstraint]);
+
+        const mouse = Mouse.create(render.canvas);
+        const mouseConstraint = MouseConstraint.create(engine, {
+            mouse: mouse,
+            constraint: { stiffness: 0.15, render: { visible: false } }
+        });
+        Composite.add(world, mouseConstraint);
+
+        window.addEventListener('resize', () => {
+            render.canvas.width = window.innerWidth;
+            render.canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
