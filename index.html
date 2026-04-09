@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { margin:0; overflow:hidden; background:#87CEEB; }
+    canvas { display:block; }
+  </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// ===== PLAYER =====
+let player = {
+  x:200,y:100,w:20,h:30,
+  vx:0,vy:0,onGround:false
+};
+
+// ===== INVENTORY =====
+let inventory = { wood:10, stone:10, gold:0, pickaxe:0, sword:0 };
+
+// ===== WORLD =====
+let tileSize = 40;
+let world = [];
+
+for(let y=0;y<60;y++){
+  world[y]=[];
+  for(let x=0;x<60;x++){
+    if(y>30) world[y][x]=1;
+    else world[y][x]=0;
+  }
+}
+
+// ===== MOB =====
+let mobs=[];
+for(let i=0;i<5;i++){
+  mobs.push({x:Math.random()*800,y:500});
+}
+
+// ===== HEROBRINE =====
+let herobrine={x:0,y:0,visible:false,timer:0};
+
+// ===== SECRET =====
+let secretFound=false;
+
+// ===== CONTROL =====
+let keys={};
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
+
+// ===== MINING =====
+canvas.addEventListener("click",e=>{
+  let x=Math.floor(e.clientX/tileSize);
+  let y=Math.floor(e.clientY/tileSize);
+
+  if(world[y] && world[y][x]===1){
+    world[y][x]=0;
+
+    let r=Math.random();
+    if(r<0.4) inventory.wood++;
+    else if(r<0.8) inventory.stone++;
+    else inventory.gold++;
+  }
+});
+
+// ===== CRAFT =====
+document.addEventListener("keydown",e=>{
+  if(e.key==="1"){
+    if(inventory.wood>=2 && inventory.stone>=3){
+      inventory.pickaxe++;
+      inventory.wood-=2; inventory.stone-=3;
+    }
+  }
+  if(e.key==="2"){
+    if(inventory.wood>=1 && inventory.stone>=2){
+      inventory.sword++;
+      inventory.wood-=1; inventory.stone-=2;
+    }
+  }
+});
+
+// ===== PHYSICS =====
+function updatePlayer(){
+  if(keys["a"]) player.vx=-3;
+  else if(keys["d"]) player.vx=3;
+  else player.vx=0;
+
+  if(keys["w"] && player.onGround){
+    player.vy=-8;
+  }
+
+  player.vy+=0.4;
+
+  player.x+=player.vx;
+  player.y+=player.vy;
+
+  player.onGround=false;
+
+  let gx=Math.floor(player.x/tileSize);
+  let gy=Math.floor((player.y+player.h)/tileSize);
+
+  if(world[gy] && world[gy][gx]===1){
+    player.y=gy*tileSize-player.h;
+    player.vy=0;
+    player.onGround=true;
+  }
+}
+
+// ===== LOOP =====
+function loop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  updatePlayer();
+
+  // WORLD
+  for(let y=0;y<world.length;y++){
+    for(let x=0;x<world[y].length;x++){
+      if(world[y][x]===1){
+        ctx.fillStyle="brown";
+        ctx.fillRect(x*tileSize,y*tileSize,tileSize,tileSize);
+      }
+    }
+  }
+
+  // MOB
+  mobs.forEach(m=>{
+    ctx.fillStyle="green";
+    ctx.fillRect(m.x,m.y,20,20);
+  });
+
+  // HEROBRINE
+  herobrine.timer++;
+  if(herobrine.timer>300){
+    herobrine.visible=Math.random()<0.3;
+    herobrine.x=Math.random()*800;
+    herobrine.y=400;
+    herobrine.timer=0;
+  }
+
+  if(herobrine.visible){
+    ctx.fillStyle="black";
+    ctx.fillRect(herobrine.x,herobrine.y,20,30);
+
+    ctx.fillStyle="white";
+    ctx.fillRect(herobrine.x+5,herobrine.y+5,5,5);
+    ctx.fillRect(herobrine.x+12,herobrine.y+5,5,5);
+  }
+
+  // SECRET
+  if(player.y>1500 && !secretFound){
+    secretFound=true;
+    inventory.gold+=67;
+  }
+
+  if(secretFound){
+    ctx.fillStyle="gold";
+    ctx.fillRect(0,0,canvas.width,50);
+    ctx.fillStyle="black";
+    ctx.fillText("Selamat menemukan rahasia ini",20,30);
+  }
+
+  // PLAYER
+  ctx.fillStyle="blue";
+  ctx.fillRect(player.x,player.y,player.w,player.h);
+
+  // UI
+  ctx.fillStyle="black";
+  ctx.fillText("Wood:"+inventory.wood,10,20);
+  ctx.fillText("Stone:"+inventory.stone,10,40);
+  ctx.fillText("Gold:"+inventory.gold,10,60);
+  ctx.fillText("Pickaxe:"+inventory.pickaxe,10,80);
+  ctx.fillText("Sword:"+inventory.sword,10,100);
+  ctx.fillText("1=Pickaxe 2=Sword",10,130);
+
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
